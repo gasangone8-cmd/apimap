@@ -20,7 +20,6 @@ export default async function handler(req, res) {
   if (typeof raw !== 'string' || raw.trim().length < 2 || raw.length > 150) return res.status(400).json({ error: '장소 이름을 2~150글자로 입력해 주세요.' });
   const query = raw.trim().normalize('NFC');
   const shared = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
-  if (process.env.VERCEL && (!shared || !process.env.NOMINATIM_USER_AGENT)) return res.status(503).json({ error: '서비스 준비 중입니다. 운영자가 Redis 연결과 검색 API 식별자를 설정해야 합니다.' });
   const endpoint = process.env.NOMINATIM_SEARCH_URL || 'https://nominatim.openstreetmap.org/search';
   const hash = createHash('sha256').update(`${endpoint}:ko:${query.toLowerCase()}`).digest('hex');
   const cacheKey = `sai:search:v1:${hash}`;
@@ -44,7 +43,7 @@ export default async function handler(req, res) {
     const url = new URL(endpoint);
     url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: '5', addressdetails: '1', 'accept-language': 'ko' }).toString();
     const response = await fetch(url, {
-      headers: { 'User-Agent': process.env.NOMINATIM_USER_AGENT || 'SaiDistanceLocal/1.0 (local development)', Accept: 'application/json' },
+      headers: { 'User-Agent': process.env.NOMINATIM_USER_AGENT || `SaiDistance/1.0 (https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || 'apimap-eight.vercel.app'})`, Accept: 'application/json' },
       signal: AbortSignal.timeout(8000)
     });
     if (!response.ok) return res.status(502).json({ error: '장소 검색 서비스가 응답하지 않아요. 잠시 후 다시 시도해 주세요.' });

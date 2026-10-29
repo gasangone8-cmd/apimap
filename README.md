@@ -35,29 +35,34 @@ npm run build
 1. 이 폴더의 소스 전체를 GitHub 저장소에 올립니다. `.env.local`은 올리지 마세요.
 2. Vercel에서 **Add New → Project → Import Git Repository**로 해당 저장소를 선택합니다.
 3. Framework Preset은 **Other**, Root Directory는 이 프로젝트 루트로 지정합니다. `vercel.json`에 Build Command `npm run build`, Output Directory `dist`가 설정되어 있습니다.
-4. Upstash에서 Redis 데이터베이스를 만들고 REST URL과 REST TOKEN을 확인합니다. Vercel 프로젝트 **Settings → Environment Variables**에 다음을 등록합니다.
+4. 추가 환경변수 없이 Deploy합니다.
+5. 배포 URL에서 두 장소 검색 → 결과 선택 → 거리 측정 → 지도 링크를 확인합니다.
+
+### 선택 환경변수
+
+기본적으로 서버 메모리 캐시와 요청 제한을 사용합니다. Redis를 사용하려면 Upstash Redis를 만들고 Vercel 프로젝트 **Settings → Environment Variables**에 REST URL과 TOKEN을 함께 등록하세요.
 
 | 변수 | 값 |
 | --- | --- |
 | `UPSTASH_REDIS_REST_URL` | Redis REST URL |
 | `UPSTASH_REDIS_REST_TOKEN` | Redis REST TOKEN (서버 전용 비밀 값) |
-| `NOMINATIM_USER_AGENT` | 예: `SaiDistance/1.0 (https://실제프로젝트.vercel.app; 운영자연락처)` |
+| `NOMINATIM_USER_AGENT` | 선택. 미설정 시 Vercel 도메인 기반 식별자 자동 생성. 운영자 연락처를 추가할 수 있습니다. |
 | `NOMINATIM_SEARCH_URL` | 선택. 기본 `https://nominatim.openstreetmap.org/search` |
 
-5. 적용할 Production/Preview 환경에 변수를 설정한 뒤 Deploy 또는 Redeploy합니다. 모든 인스턴스·Preview·Production에 **같은 Redis**를 연결해야 앱 전체 요청 제한이 공유됩니다. 다른 앱은 Redis 키를 공유하지 않는 별도 데이터베이스를 사용하세요.
-6. 배포 URL에서 두 장소 검색 → 결과 선택 → 거리 측정 → 지도 링크를 확인합니다.
+환경변수를 변경했다면 Redeploy합니다. Redis 사용 시 모든 인스턴스·Preview·Production에 **같은 Redis**를 연결해야 앱 전체 요청 제한이 공유됩니다. 다른 앱은 별도 데이터베이스를 사용하세요.
 
-Vercel에서는 Redis 또는 API 식별자가 빠지면 외부 검색을 실행하지 않고 설정 안내를 반환합니다. Redis의 무료 한도/요금은 제공자 정책을 확인하세요. 이 작업에서는 GitHub 저장소 생성과 실제 Vercel 배포를 하지 않았습니다.
+Redis는 선택 사항입니다. 설정한 Redis에 장애가 나면 안전을 위해 검색을 중단합니다. Redis의 무료 한도/요금은 제공자 정책을 확인하세요.
 
 ## Nominatim 공개 API 이용 조건
 
 공개 서버는 무제한 무료 서비스가 아닙니다. 반드시 [공식 이용 정책](https://operations.osmfoundation.org/policies/nominatim/)을 확인하고 운영자가 준수해야 합니다.
 
-- 앱의 모든 사용자를 합쳐 최대 초당 1회. Redis 원자적 잠금으로 요청을 직렬화하고 응답 완료 후 1.1초 동안 추가 요청을 차단합니다. 검색 결과는 Redis에 24시간 캐시합니다.
+- 앱의 모든 사용자를 합쳐 최대 초당 1회입니다. 기본 메모리 제한은 서버 인스턴스별로만 작동하므로 Vercel 다중 인스턴스에서는 앱 전체 제한을 보장하지 않습니다. 공개 운영에서 이 제한을 보장하려면 공유 Redis를 연결하거나 자체 호스팅/호환 제공자를 사용하세요.
+- 서버는 응답 완료 후 1.1초 동안 추가 요청을 차단하고 결과를 최대 24시간 캐시합니다. 기본 메모리 캐시는 최대 200개이며 서버 재시작 시 사라집니다. Redis 사용 시 인스턴스 간 캐시와 원자적 잠금을 공유합니다.
 - 검색은 사용자 버튼 클릭/Enter로만 실행합니다. 입력 중 자동완성, 자동 재시도, 주기적 검색을 하지 않습니다.
-- 식별 가능한 User-Agent를 서버에서 전송합니다. 실제 프로젝트 URL/운영자 연락처로 설정하세요.
+- 식별 가능한 User-Agent를 서버에서 전송합니다. 기본값은 Vercel 도메인을 사용하며 운영자 연락처를 환경변수로 추가할 수 있습니다.
 - 화면에 OpenStreetMap 출처와 이용 정책을 표시합니다. 데이터는 ODbL입니다.
-- 사용자가 검색한 문구는 Nominatim에 전송되고, 검색어 해시와 검색 결과는 운영자의 Redis에 24시간 저장됩니다. 개인정보·기밀 주소는 입력하지 마세요.
+- 사용자가 검색한 문구는 Nominatim에 전송되고, 검색어 해시와 결과는 서버 메모리 또는 선택한 Redis에 최대 24시간 저장됩니다. 개인정보·기밀 주소는 입력하지 마세요.
 - 트래픽이 늘거나 제공자 요청이 있을 때 `NOMINATIM_SEARCH_URL`을 자체 호스팅/호환 제공자로 바꾸고 재배포하세요. 브라우저 코드 수정은 필요 없습니다.
 - 요청 제한 초과, 장애 또는 차단 시 검색이 실패할 수 있습니다. 실제 장소라도 OSM에 등록되지 않았거나 명칭이 다르면 검색되지 않을 수 있습니다.
 

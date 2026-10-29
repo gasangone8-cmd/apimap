@@ -18,13 +18,21 @@ test('search normalizes results, reuses cache and throttles new queries', async 
     const c = response(); await handler({ method: 'GET', query: { q: '부산역' } }, c); assert.equal(c.code, 429); assert.equal(calls, 1);
   } finally { globalThis.fetch = original; }
 });
-test('deployed search fails closed without shared rate limiter', async () => {
+test('deployed search works without Redis or a custom API identifier', async () => {
   const previous = process.env.VERCEL;
+  const original = globalThis.fetch;
+  const now = Date.now;
   process.env.VERCEL = '1';
+  Date.now = () => now() + 20000;
+  globalThis.fetch = async (url, options) => {
+    assert.match(options.headers['User-Agent'], /^SaiDistance\/1\.0 \(https:\/\//);
+    return { ok: true, json: async () => [{ name: '남산서울타워', display_name: '남산서울타워, 서울', lat: '37.551', lon: '126.988' }] };
+  };
   try {
-    const res = response(); await handler({ method: 'GET', query: { q: '서울역' } }, res);
-    assert.equal(res.code, 503);
-  } finally { if (previous === undefined) delete process.env.VERCEL; else process.env.VERCEL = previous; }
+    const res = response(); await handler({ method: 'GET', query: { q: '남산서울타워' } }, res);
+    assert.equal(res.code, 200);
+    assert.equal(res.data[0].name, '남산서울타워');
+  } finally { globalThis.fetch = original; Date.now = now; if (previous === undefined) delete process.env.VERCEL; else process.env.VERCEL = previous; }
 });
 test('Redis lock blocks concurrent upstream calls across function requests', async () => {
   const original = globalThis.fetch;
